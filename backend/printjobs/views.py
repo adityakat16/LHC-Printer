@@ -79,11 +79,13 @@ def create_order(request):
         # fallback to 1 page
         pages = 1
 
-    # pricing rules
-    base_cents = 1000  # 10 INR
-    per_page_cents = 200
-    color_surcharge_cents = 300 if data['color_mode']=='color' else 0
-    price = base_cents + per_page_cents * pages + (color_surcharge_cents * pages)
+    # Pricing is per page with no base charge.
+    price_per_page = (
+        settings.PRINT_PRICE_COLOR_PAISE
+        if data['color_mode'] == 'color'
+        else settings.PRINT_PRICE_BW_PAISE
+    )
+    price = price_per_page * pages
 
     order = Order.objects.create(
         file_key=file_key,
@@ -109,6 +111,8 @@ def create_order(request):
 
 
 @api_view(['POST'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
 def razorpay_confirm(request):
     """Confirm payment after client-side Checkout (verifies signature and amount)."""
     data = request.data
@@ -260,8 +264,18 @@ def device_register(request):
 
 
 @api_view(['GET'])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def order_history(request):
+    orders = Order.objects.filter(user_id=str(request.user.id)).order_by('-created_at')
+    return Response(OrderSerializer(orders, many=True).data)
+
+
+@api_view(['GET'])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
 def order_detail(request, order_id):
-    order = get_object_or_404(Order, id=order_id)
+    order = get_object_or_404(Order, id=order_id, user_id=str(request.user.id))
     return Response(OrderSerializer(order).data)
 
 

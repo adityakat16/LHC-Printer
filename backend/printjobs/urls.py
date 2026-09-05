@@ -6,6 +6,7 @@ urlpatterns = [
     path('uploads/presign/', views.presign_upload, name='presign_upload'),
     path('uploads/local/<str:token>/', views.local_upload, name='local_upload'),
     path('orders/', views.create_order, name='create_order'),
+    path('orders/history/', views.order_history, name='order_history'),
     path('orders/<int:order_id>/', views.order_detail, name='order_detail'),
     path('payments/razorpay/webhook/', views.razorpay_webhook, name='razorpay_webhook'),
     path('payments/razorpay/confirm/', views.razorpay_confirm, name='razorpay_confirm'),

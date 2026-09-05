@@ -71,6 +71,7 @@ SITE_ID = 1
 AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
+SOCIALACCOUNT_ADAPTER = 'printkiosk.adapters.GoogleAccountAdapter'
 
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
@@ -87,6 +88,7 @@ SOCIALACCOUNT_PROVIDERS = {
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_LOGOUT_ON_GET = True
+SOCIALACCOUNT_LOGIN_ON_GET = True
 
 ROOT_URLCONF = 'printkiosk.urls'
 
@@ -137,3 +139,7 @@ AWS_S3_BUCKET = os.getenv('AWS_S3_BUCKET')
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_S3_REGION = os.getenv('AWS_S3_REGION')
+
+# Pricing is stored in paise (100 paise = Rs. 1).
+PRINT_PRICE_BW_PAISE = int(os.getenv('PRINT_PRICE_BW_PAISE', '200'))
+PRINT_PRICE_COLOR_PAISE = int(os.getenv('PRINT_PRICE_COLOR_PAISE', '400'))

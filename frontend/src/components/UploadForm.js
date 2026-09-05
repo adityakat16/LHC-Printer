@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 const STORAGE_KEY = 'print-kiosk-upload-form';
@@ -26,8 +26,9 @@ function saveState(order, status, color){
   }
 }
 
-export default function UploadForm({ isAuthenticated }){
+export default function UploadForm({ isAuthenticated, onOrderUpdated }){
   const [file, setFile] = useState(null);
+  const fileInputRef = useRef(null);
   const [color, setColor] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}').color || 'bw';
@@ -74,6 +75,9 @@ export default function UploadForm({ isAuthenticated }){
 
   const resetOrder = () => {
     setFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     setOrder(null);
     setStatus('idle');
     try {
@@ -103,13 +107,20 @@ export default function UploadForm({ isAuthenticated }){
           form.append('file', file);
           await axios.post(uploadUrl, form, { headers: { 'Content-Type': 'multipart/form-data' } });
         } else {
-          await axios.put(uploadUrl, file, {headers:{'Content-Type':'application/pdf'}});
+          // Presigned S3 uploads use the URL signature instead of the Django session.
+          await axios.put(uploadUrl, file, {
+            withCredentials: false,
+            headers: { 'Content-Type': 'application/pdf' }
+          });
         }
       }
       setStatus('creating order');
       const resp = await axios.post('/api/orders/', {file_key, pages_spec:'all', color_mode: color});
       setOrder(resp.data.order);
       setStatus('order created');
+      if (onOrderUpdated) {
+        await onOrderUpdated();
+      }
 
       const payInfo = resp.data.pay_info;
       try{
@@ -156,12 +167,18 @@ export default function UploadForm({ isAuthenticated }){
                   setOrder(o.data);
                   setStatus(o.data.status || 'paid');
                 }
+                if (onOrderUpdated) {
+                  await onOrderUpdated();
+                }
                 alert('Payment confirmed');
               }catch(err){
                 console.error('Confirm error', err);
                 setStatus('payment_failed');
                 setOrder((prev) => prev ? { ...prev, status: 'payment_failed' } : prev);
-                alert('Payment verification failed');
+                const detail = err.response && err.response.data
+                  ? JSON.stringify(err.response.data)
+                  : err.message;
+                alert(`Payment verification failed: ${detail}`);
               }
             },
             modal: {
@@ -184,6 +201,7 @@ export default function UploadForm({ isAuthenticated }){
         console.error('Razorpay flow error', e);
         setStatus('payment_failed');
         setOrder((prev) => prev ? { ...prev, status: 'payment_failed' } : prev);
+        alert(`Payment setup failed: ${e.message}`);
       }
 
     }catch(err){
@@ -194,24 +212,52 @@ export default function UploadForm({ isAuthenticated }){
         alert('Your Google login session is not active. Please log in again before creating an order.');
         return;
       }
-      setStatus('payment_failed');
-      setOrder((prev) => prev ? { ...prev, status: 'payment_failed' } : prev);
-      alert(err.response && err.response.data ? JSON.stringify(err.response.data) : err.message);
+      const failedStage = err.config && err.config.url && err.config.url.includes('/api/orders/')
+        ? 'order_failed'
+        : 'upload_failed';
+      setStatus(failedStage);
+      setOrder((prev) => prev ? { ...prev, status: failedStage } : prev);
+      const detail = err.response && err.response.data
+        ? JSON.stringify(err.response.data)
+        : err.message;
+      alert(`Upload/order failed: ${detail}`);
     }
   }
 
   return (
-    <div>
-      <input type="file" accept="application/pdf" onChange={handleFileChange} />
-      <div>
-        <label><input type="radio" checked={color==='bw'} onChange={()=>setColor('bw')} /> BW</label>
-        <label style={{marginLeft:10}}><input type="radio" checked={color==='color'} onChange={()=>setColor('color')} /> Color</label>
+    <section className="card upload-card">
+      <p className="eyebrow">New print job</p>
+      <h2 className="card-title">Upload your document</h2>
+      <p className="card-copy">Choose a PDF, select your finish, and we’ll take care of the rest.</p>
+      <div className={`file-picker ${file ? 'file-picker-selected' : ''}`}>
+        <input
+          ref={fileInputRef}
+          className="file-input-hidden"
+          id="pdf-file"
+          type="file"
+          accept="application/pdf"
+          onChange={handleFileChange}
+        />
+        <label className="file-picker-label" htmlFor="pdf-file">
+          <span className="file-icon" aria-hidden="true">↑</span>
+          <span>
+            <strong>{file ? file.name : 'Choose a PDF file'}</strong>
+            <small>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB selected` : 'Maximum clarity, ready to print'}</small>
+          </span>
+          <span className="file-picker-action">{file ? 'Change' : 'Browse'}</span>
+        </label>
       </div>
-      <button onClick={upload}>Upload & Create Order</button>
-      <button type="button" onClick={resetOrder} style={{ marginLeft: 8 }}>New Order</button>
-      <div>Status: {status}</div>
-      {order && <pre>{JSON.stringify(order,null,2)}</pre>}
-    </div>
+      <div className="option-row">
+        <label><input type="radio" checked={color==='bw'} onChange={()=>setColor('bw')} /> BW</label>
+        <label><input type="radio" checked={color==='color'} onChange={()=>setColor('color')} /> Color</label>
+      </div>
+      <div className="action-row">
+        <button onClick={upload}>Upload & Create Order</button>
+        <button className="button-secondary" type="button" onClick={resetOrder}>New Order</button>
+      </div>
+      <div className="status-line">Status: <span className="status-value">{status}</span></div>
+      {order && <pre className="order-preview">{JSON.stringify(order,null,2)}</pre>}
+    </section>
 
   )
 }

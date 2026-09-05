@@ -21,7 +21,15 @@ def presign_upload(request):
     bucket = settings.AWS_S3_BUCKET
     key = f"uploads/{uuid.uuid4()}.pdf"
     if bucket and settings.AWS_ACCESS_KEY_ID:
-        s3 = boto3.client('s3', aws_access_key_id=settings.AWS_ACCESS_KEY_ID, aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY, region_name=settings.AWS_S3_REGION,config=Config(signature_version='s3v4'))
+        region = settings.AWS_S3_REGION
+        s3 = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=region,
+            endpoint_url=f'https://s3.{region}.amazonaws.com',
+            config=Config(signature_version='s3v4'),
+        )
         try:
             url = s3.generate_presigned_url('put_object', Params={'Bucket': bucket, 'Key': key,'ContentType': 'application/pdf',}, ExpiresIn=3600)
             return Response({'upload_url': url, 'file_key': key})
