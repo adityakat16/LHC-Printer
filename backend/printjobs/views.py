@@ -5,11 +5,12 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth import logout
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import SessionAuthentication
 from .models import Order, Device, PrintJob
 from .serializers import OrderSerializer, CreateOrderSerializer, DeviceSerializer, PrintJobSerializer
 from .razorpay_utils import create_razorpay_order, verify_payment_signature, verify_webhook_signature, fetch_order, fetch_payment
@@ -21,6 +22,11 @@ import uuid
 from .tasks import process_order_async
 from PyPDF2 import PdfReader
 from .views_uploads import presign_upload
+
+
+class CsrfExemptSessionAuthentication(SessionAuthentication):
+    def enforce_csrf(self, request):
+        return
 
 
 
@@ -35,6 +41,7 @@ def csrf(request):
 
 @csrf_exempt
 @api_view(['POST'])
+@authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def create_order(request):
     s = CreateOrderSerializer(data=request.data)

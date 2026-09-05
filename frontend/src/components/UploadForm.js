@@ -188,6 +188,12 @@ export default function UploadForm({ isAuthenticated }){
 
     }catch(err){
       console.error(err);
+      if (err.response && (err.response.status === 401 || err.response.status === 403) &&
+          err.config && err.config.url && err.config.url.includes('/api/orders/')) {
+        setStatus('login_required');
+        alert('Your Google login session is not active. Please log in again before creating an order.');
+        return;
+      }
       setStatus('payment_failed');
       setOrder((prev) => prev ? { ...prev, status: 'payment_failed' } : prev);
       alert(err.response && err.response.data ? JSON.stringify(err.response.data) : err.message);

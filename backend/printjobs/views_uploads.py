@@ -1,18 +1,19 @@
 import os
 import uuid
 from django.conf import settings
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from botocore.exceptions import ClientError
 import boto3
 from botocore.config import Config
 
 @csrf_exempt
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([])
+@permission_classes([AllowAny])
 def presign_upload(request):
     """Return an upload URL for S3 if configured; otherwise return a local upload endpoint URL.
     The frontend will PUT the file bytes to the returned upload_url.
@@ -35,7 +36,8 @@ def presign_upload(request):
 
 @csrf_exempt
 @api_view(['PUT','POST'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([])
+@permission_classes([AllowAny])
 def local_upload(request, token):
     """Accept raw PUT body or multipart POST and save to MEDIA_ROOT/local/<token>.pdf"""
     filename = f"local/{token}.pdf"
