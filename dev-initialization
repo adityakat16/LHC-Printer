@@ -1,0 +1,13 @@
+1. Install Docker Desktop
+2. In project root run docker-compose up --build (takes several minutes)
+3. Create django migrations and create superuser
+4. docker-compose exec backend python manage.py migrate
+5. docker-compose exec backend python manage.py createsuperuser
+6. Django superuser username#password: Stranger#drunk
+7. Start all services (detached): docker-compose up -d
+8. Start already-created containers (no recreate): docker-compose start
+9. Stop containers: docker-compose stop
+10. Stop & remove containers/networks (clean): docker-compose down
+11. To start frontend npm start
+12. On code or dependencies changes docker-compose up --build frontend(for specific service)
+13. Qeueing through RabbitMQ. username#password: rabbit#rabbit
