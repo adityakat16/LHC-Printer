@@ -18,6 +18,16 @@ def presign_upload(request):
     """Return an upload URL for S3 if configured; otherwise return a local upload endpoint URL.
     The frontend will PUT the file bytes to the returned upload_url.
     """
+    requested_size = request.data.get('file_size')
+    if requested_size is None:
+        return Response({'error': 'file_size is required'}, status=400)
+    try:
+        requested_size = int(requested_size)
+    except (TypeError, ValueError):
+        return Response({'error': 'file_size must be an integer'}, status=400)
+    if requested_size <= 0 or requested_size > settings.MAX_UPLOAD_SIZE_BYTES:
+        return Response({'error': 'File size must not exceed 15 MB'}, status=400)
+
     bucket = settings.AWS_S3_BUCKET
     key = f"uploads/{uuid.uuid4()}.pdf"
     if bucket and settings.AWS_ACCESS_KEY_ID:

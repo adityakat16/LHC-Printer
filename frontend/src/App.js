@@ -54,6 +54,10 @@ function App(){
 
   useEffect(() => {
     fetchOrderHistory();
+    if (!user) return undefined;
+
+    const refreshTimer = window.setInterval(fetchOrderHistory, 10000);
+    return () => window.clearInterval(refreshTimer);
   }, [user]);
 
   const handleGoogleLogin = () => {
@@ -78,14 +82,14 @@ function App(){
       <div className="app-container">
       <div className="topbar">
         <div>
-          <p className="eyebrow">Simple. Secure. Printed.</p>
+          <p className="eyebrow">Student Welfare Council, IISER TVM</p>
           <h1 className="brand">Print Kiosk</h1>
         </div>
         {isLoadingUser || isLoggingOut ? (
           <span className="user-area">{isLoggingOut ? 'Logging out...' : 'Loading...'}</span>
         ) : user ? (
           <div className="user-area">
-            <span>Hi, {user.full_name || user.email}</span>
+            <span>Hi, {user.full_name}</span>
             <button type="button" onClick={handleGoogleLogout} disabled={isLoggingOut}>Logout</button>
           </div>
         ) : (
@@ -101,7 +105,6 @@ function App(){
           <div className="section-heading">
             <h2>Previous orders</h2>
             <div className="history-actions">
-              <span className="eyebrow">Your activity</span>
               <button className="button-secondary button-small" type="button" onClick={fetchOrderHistory} disabled={ordersLoading}>
                 {ordersLoading ? 'Refreshing...' : 'Refresh'}
               </button>

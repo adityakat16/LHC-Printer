@@ -69,6 +69,9 @@ def create_order(request):
             else:
                 return Response({'error':'local file not found', 'file_key': file_key}, status=400)
 
+    if file_bytes is not None and len(file_bytes) > settings.MAX_UPLOAD_SIZE_BYTES:
+        return Response({'error': 'File size must not exceed 15 MB'}, status=400)
+
     # Parse PDF for page count
     pages = 1
     try:
@@ -153,7 +156,7 @@ def razorpay_confirm(request):
 
     device = Device.objects.first()
     if device:
-        PrintJob.objects.create(order=order, device=device, status='queued')
+        PrintJob.objects.get_or_create(order=order, device=device, defaults={'status': 'queued'})
     # return updated order for frontend convenience
     return Response({'status':'ok', 'order': OrderSerializer(order).data})
 
@@ -229,7 +232,7 @@ def razorpay_webhook(request):
 
     device = Device.objects.first()
     if device:
-        PrintJob.objects.create(order=our_order, device=device, status='queued')
+        PrintJob.objects.get_or_create(order=our_order, device=device, defaults={'status': 'queued'})
     return Response({'status':'ok'})
 
 
@@ -282,17 +285,42 @@ def order_detail(request, order_id):
 @api_view(['GET'])
 def device_jobs(request, device_id):
     device = get_object_or_404(Device, id=device_id)
+    token = request.headers.get('Authorization', '').removeprefix('Token ').strip()
+    if not token or token != device.device_token:
+        return Response({'error': 'invalid device token'}, status=401)
     jobs = PrintJob.objects.filter(device=device, status='queued')
-    return Response(PrintJobSerializer(jobs, many=True).data)
+    serialized = PrintJobSerializer(jobs, many=True).data
+    for job in serialized:
+        file_key = job['order'].get('file_key')
+        if file_key and settings.AWS_S3_BUCKET and not file_key.startswith('local/'):
+            s3 = boto3.client(
+                's3',
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_S3_REGION,
+                endpoint_url=f'https://s3.{settings.AWS_S3_REGION}.amazonaws.com',
+            )
+            job['download_url'] = s3.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': settings.AWS_S3_BUCKET, 'Key': file_key},
+                ExpiresIn=600,
+            )
+    return Response(serialized)
 
 
 @api_view(['POST'])
 def job_update(request, device_id, job_id):
     device = get_object_or_404(Device, id=device_id)
+    token = request.headers.get('Authorization', '').removeprefix('Token ').strip()
+    if not token or token != device.device_token:
+        return Response({'error': 'invalid device token'}, status=401)
     job = get_object_or_404(PrintJob, id=job_id, device=device)
     status_ = request.data.get('status')
     job.status = status_
     job.attempts = request.data.get('attempts', job.attempts)
     job.last_error = request.data.get('last_error','')
     job.save()
+    if status_ == 'done':
+        job.order.status = 'printed'
+        job.order.save(update_fields=['status', 'updated_at'])
     return Response(PrintJobSerializer(job).data)

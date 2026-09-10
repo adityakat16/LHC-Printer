@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 const STORAGE_KEY = 'print-kiosk-upload-form';
+const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 
 axios.defaults.withCredentials = true;
 
@@ -69,6 +70,12 @@ export default function UploadForm({ isAuthenticated, onOrderUpdated }){
       alert('Please upload a PDF file only.');
       return;
     }
+    if (picked.size > MAX_FILE_SIZE_BYTES) {
+      setFile(null);
+      e.target.value = '';
+      alert('Please choose a PDF smaller than 15 MB.');
+      return;
+    }
 
     setFile(picked);
   };
@@ -97,7 +104,7 @@ export default function UploadForm({ isAuthenticated, onOrderUpdated }){
       // Get CSRF cookie from Django
       await axios.get('/api/csrf/');
       setStatus('getting presign');
-      const pres = await axios.post('/api/uploads/presign/');
+      const pres = await axios.post('/api/uploads/presign/', { file_size: file.size });
       const file_key = pres.data.file_key;
       setStatus('uploading file');
       if(pres.data.upload_url){
@@ -226,9 +233,9 @@ export default function UploadForm({ isAuthenticated, onOrderUpdated }){
 
   return (
     <section className="card upload-card">
-      <p className="eyebrow">New print job</p>
-      <h2 className="card-title">Upload your document</h2>
-      <p className="card-copy">Choose a PDF, select your finish, and we’ll take care of the rest.</p>
+      <p className="eyebrow">New Print</p>
+      <h2 className="card-title">Upload PDF File</h2>
+      <p className="card-copy">Choose a PDF, Select mode for Printing, Pay and collect at LHC Security Desk.</p>
       <div className={`file-picker ${file ? 'file-picker-selected' : ''}`}>
         <input
           ref={fileInputRef}
@@ -242,7 +249,7 @@ export default function UploadForm({ isAuthenticated, onOrderUpdated }){
           <span className="file-icon" aria-hidden="true">↑</span>
           <span>
             <strong>{file ? file.name : 'Choose a PDF file'}</strong>
-            <small>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB selected` : 'Maximum clarity, ready to print'}</small>
+            <small>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB selected` : 'Max File sizw: 15MB'}</small>
           </span>
           <span className="file-picker-action">{file ? 'Change' : 'Browse'}</span>
         </label>

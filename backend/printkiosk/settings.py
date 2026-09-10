@@ -139,6 +139,7 @@ AWS_S3_BUCKET = os.getenv('AWS_S3_BUCKET')
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_S3_REGION = os.getenv('AWS_S3_REGION')
+MAX_UPLOAD_SIZE_BYTES = int(os.getenv('MAX_UPLOAD_SIZE_BYTES', str(15 * 1024 * 1024)))
 
 # Pricing is stored in paise (100 paise = Rs. 1).
 PRINT_PRICE_BW_PAISE = int(os.getenv('PRINT_PRICE_BW_PAISE', '200'))

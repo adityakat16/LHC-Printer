@@ -18,6 +18,8 @@ class DeviceSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class PrintJobSerializer(serializers.ModelSerializer):
+    order = OrderSerializer(read_only=True)
+
     class Meta:
         model = PrintJob
         fields = '__all__'
