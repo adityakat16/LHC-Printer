@@ -3,5 +3,6 @@
   "device_id": null,
   "device_token": "",
   "poll_interval_seconds": 10,
-  "printer_name": "Canon PIXMA G3000"
+  "printer_name": "brother_dcp_t830dw",
+  "cups_server": ""
 }

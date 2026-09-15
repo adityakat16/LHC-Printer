@@ -1,7 +1,7 @@
 import os
 import io
 import os.path
-from django.http import JsonResponse
+from django.http import JsonResponse, FileResponse
 from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth import logout
@@ -16,8 +16,6 @@ from .serializers import OrderSerializer, CreateOrderSerializer, DeviceSerialize
 from .razorpay_utils import create_razorpay_order, verify_payment_signature, verify_webhook_signature, fetch_order, fetch_payment
 from django.shortcuts import get_object_or_404
 from celery import shared_task
-import boto3
-from botocore.exceptions import ClientError
 import uuid
 from .tasks import process_order_async
 from PyPDF2 import PdfReader
@@ -49,25 +47,17 @@ def create_order(request):
     data = s.validated_data
     file_key = data['file_key']
 
-    # Load file bytes from S3 or local storage
+    # Load the uploaded PDF from Django-managed local storage.
     file_bytes = None
-    if settings.AWS_S3_BUCKET and file_key and not file_key.startswith('local/'):
-        s3 = boto3.client('s3', aws_access_key_id=settings.AWS_ACCESS_KEY_ID, aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY, region_name=settings.AWS_S3_REGION)
-        try:
-            obj = s3.get_object(Bucket=settings.AWS_S3_BUCKET, Key=file_key)
-            file_bytes = obj['Body'].read()
-        except Exception as e:
-            return Response({'error': f'Failed to fetch from S3: {str(e)}'}, status=500)
+    if not file_key.startswith('local/'):
+        return Response({'error': 'Only server-local uploads are supported'}, status=400)
+    rel = file_key.split('/', 1)[1]
+    path = settings.MEDIA_ROOT / rel
+    if path.exists():
+        with open(path, 'rb') as f:
+            file_bytes = f.read()
     else:
-        # local storage
-        if file_key and file_key.startswith('local/'):
-            rel = file_key.split('/',1)[1]
-            path = settings.MEDIA_ROOT / rel
-            if path.exists():
-                with open(path, 'rb') as f:
-                    file_bytes = f.read()
-            else:
-                return Response({'error':'local file not found', 'file_key': file_key}, status=400)
+        return Response({'error':'local file not found', 'file_key': file_key}, status=400)
 
     if file_bytes is not None and len(file_bytes) > settings.MAX_UPLOAD_SIZE_BYTES:
         return Response({'error': 'File size must not exceed 15 MB'}, status=400)
@@ -290,22 +280,23 @@ def device_jobs(request, device_id):
         return Response({'error': 'invalid device token'}, status=401)
     jobs = PrintJob.objects.filter(device=device, status='queued')
     serialized = PrintJobSerializer(jobs, many=True).data
-    for job in serialized:
-        file_key = job['order'].get('file_key')
-        if file_key and settings.AWS_S3_BUCKET and not file_key.startswith('local/'):
-            s3 = boto3.client(
-                's3',
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-                region_name=settings.AWS_S3_REGION,
-                endpoint_url=f'https://s3.{settings.AWS_S3_REGION}.amazonaws.com',
-            )
-            job['download_url'] = s3.generate_presigned_url(
-                'get_object',
-                Params={'Bucket': settings.AWS_S3_BUCKET, 'Key': file_key},
-                ExpiresIn=600,
-            )
     return Response(serialized)
+
+
+@api_view(['GET'])
+def device_job_file(request, device_id, job_id):
+    device = get_object_or_404(Device, id=device_id)
+    token = request.headers.get('Authorization', '').removeprefix('Token ').strip()
+    if not token or token != device.device_token:
+        return Response({'error': 'invalid device token'}, status=401)
+    job = get_object_or_404(PrintJob, id=job_id, device=device)
+    file_key = job.order.file_key
+    if not file_key.startswith('local/'):
+        return Response({'error': 'Only server-local uploads are supported'}, status=400)
+    path = settings.MEDIA_ROOT / file_key.split('/', 1)[1]
+    if not path.is_file():
+        return Response({'error': 'uploaded file not found'}, status=404)
+    return FileResponse(open(path, 'rb'), content_type='application/pdf')
 
 
 @api_view(['POST'])

@@ -4,6 +4,7 @@ import json
 import subprocess
 import os
 import tempfile
+import platform
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
 
@@ -19,10 +20,30 @@ DEVICE_ID = cfg.get('device_id')
 POLL = cfg.get('poll_interval_seconds', 10)
 TOKEN = cfg.get('device_token')
 PRINTER = cfg.get('printer_name')
+CUPS_SERVER = cfg.get('cups_server', '')
 
 headers = {'Authorization': f'Token {TOKEN}'} if TOKEN else {}
 
 print(f"Starting local print agent. Polling {BASE}/devices/{DEVICE_ID}/jobs/ every {POLL}s")
+
+
+def print_pdf(path):
+    if platform.system() == 'Windows':
+        command = (
+            "Start-Process -FilePath "
+            f"'{path}' -Verb PrintTo -ArgumentList '{PRINTER}' -PassThru"
+        )
+        subprocess.run(["powershell", "-NoProfile", "-Command", command], check=True)
+        return
+
+    if not PRINTER:
+        raise RuntimeError('printer_name is required for Linux/CUPS printing')
+
+    command = ['lp']
+    if CUPS_SERVER:
+        command.extend(['-h', CUPS_SERVER])
+    command.extend(['-d', PRINTER, path])
+    subprocess.run(command, check=True)
 
 while True:
     try:
@@ -41,9 +62,9 @@ while True:
             requests.post(f"{BASE}/devices/{DEVICE_ID}/jobs/{job_id}/status/", json={'status':'downloading'}, headers=headers)
             temp_path = None
             try:
-                download_url = job.get('download_url')
+                download_url = job.get('download_url') or f"{BASE}/devices/{DEVICE_ID}/jobs/{job_id}/file/"
                 if download_url:
-                    with requests.get(download_url, stream=True, timeout=60) as download:
+                    with requests.get(download_url, headers=headers, stream=True, timeout=60) as download:
                         download.raise_for_status()
                         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp:
                             temp_path = temp.name
@@ -56,9 +77,7 @@ while True:
                     raise RuntimeError('No downloadable file was provided for this job')
 
                 requests.post(f"{BASE}/devices/{DEVICE_ID}/jobs/{job_id}/status/", json={'status':'printing'}, headers=headers)
-                # PrintTo targets the configured Windows printer instead of the default printer.
-                command = f"Start-Process -FilePath '{temp_path}' -Verb PrintTo -ArgumentList '{PRINTER}' -PassThru"
-                subprocess.run(["powershell", "-NoProfile", "-Command", command], check=True)
+                print_pdf(temp_path)
                 requests.post(f"{BASE}/devices/{DEVICE_ID}/jobs/{job_id}/status/", json={'status':'done','attempts': job.get('attempts',0)+1}, headers=headers)
             except Exception as exc:
                 print('Print failed', exc)

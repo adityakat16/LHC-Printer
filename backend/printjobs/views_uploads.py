@@ -6,18 +6,13 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
-from botocore.exceptions import ClientError
-import boto3
-from botocore.config import Config
 
 @csrf_exempt
 @api_view(['POST'])
 @authentication_classes([])
 @permission_classes([AllowAny])
 def presign_upload(request):
-    """Return an upload URL for S3 if configured; otherwise return a local upload endpoint URL.
-    The frontend will PUT the file bytes to the returned upload_url.
-    """
+    """Return a Django upload endpoint for the PDF."""
     requested_size = request.data.get('file_size')
     if requested_size is None:
         return Response({'error': 'file_size is required'}, status=400)
@@ -28,24 +23,6 @@ def presign_upload(request):
     if requested_size <= 0 or requested_size > settings.MAX_UPLOAD_SIZE_BYTES:
         return Response({'error': 'File size must not exceed 15 MB'}, status=400)
 
-    bucket = settings.AWS_S3_BUCKET
-    key = f"uploads/{uuid.uuid4()}.pdf"
-    if bucket and settings.AWS_ACCESS_KEY_ID:
-        region = settings.AWS_S3_REGION
-        s3 = boto3.client(
-            's3',
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=region,
-            endpoint_url=f'https://s3.{region}.amazonaws.com',
-            config=Config(signature_version='s3v4'),
-        )
-        try:
-            url = s3.generate_presigned_url('put_object', Params={'Bucket': bucket, 'Key': key,'ContentType': 'application/pdf',}, ExpiresIn=3600)
-            return Response({'upload_url': url, 'file_key': key})
-        except ClientError as e:
-            return Response({'error': str(e)}, status=500)
-    # fallback to local upload endpoint
     token = str(uuid.uuid4())
     local_key = f"local/{token}.pdf"
     # Return a relative upload path for local fallback so frontend dev server proxy can route it
@@ -65,11 +42,15 @@ def local_upload(request, token):
         # If multipart POST
         if request.FILES:
             fileobj = list(request.FILES.values())[0]
+            if fileobj.size > settings.MAX_UPLOAD_SIZE_BYTES:
+                return Response({'error': 'File size must not exceed 15 MB'}, status=400)
             with open(dest, 'wb') as f:
                 for chunk in fileobj.chunks():
                     f.write(chunk)
         else:
             # Raw body from PUT
+            if len(request.body) > settings.MAX_UPLOAD_SIZE_BYTES:
+                return Response({'error': 'File size must not exceed 15 MB'}, status=400)
             with open(dest, 'wb') as f:
                 f.write(request.body)
         return Response({'file_key': filename})

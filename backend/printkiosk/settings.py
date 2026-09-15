@@ -129,16 +129,17 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Celery
 CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+CELERY_BEAT_SCHEDULE = {
+    'delete-expired-uploads': {
+        'task': 'printjobs.tasks.delete_expired_uploads',
+        'schedule': 3600.0,
+    },
+}
 
 # Uploads (local fallback)
 MEDIA_ROOT = BASE_DIR / 'uploads'
 MEDIA_URL = '/media/'
 
-# AWS - optional
-AWS_S3_BUCKET = os.getenv('AWS_S3_BUCKET')
-AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-AWS_S3_REGION = os.getenv('AWS_S3_REGION')
 MAX_UPLOAD_SIZE_BYTES = int(os.getenv('MAX_UPLOAD_SIZE_BYTES', str(15 * 1024 * 1024)))
 
 # Pricing is stored in paise (100 paise = Rs. 1).

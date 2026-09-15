@@ -103,7 +103,7 @@ export default function UploadForm({ isAuthenticated, onOrderUpdated }){
     try{
       // Get CSRF cookie from Django
       await axios.get('/api/csrf/');
-      setStatus('getting presign');
+      setStatus('preparing upload');
       const pres = await axios.post('/api/uploads/presign/', { file_size: file.size });
       const file_key = pres.data.file_key;
       setStatus('uploading file');
