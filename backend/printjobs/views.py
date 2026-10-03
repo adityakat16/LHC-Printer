@@ -323,4 +323,7 @@ def job_update(request, device_id, job_id):
     if status_ == 'done':
         job.order.status = 'printed'
         job.order.save(update_fields=['status', 'updated_at'])
+    elif status_ == 'error' and job.order.status == 'printed':
+        job.order.status = 'paid'
+        job.order.save(update_fields=['status', 'updated_at'])
     return Response(PrintJobSerializer(job).data)

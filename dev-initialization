@@ -11,3 +11,29 @@
 11. To start frontend npm start
 12. On code or dependencies changes docker-compose up --build frontend(for specific service)
 13. Qeueing through RabbitMQ. username#password: rabbit#rabbit
+
+
+ For Setting up linux cups and python local agent:
+ ' ping 192.168.151.103
+ ' sudo apt install cups cups-client cups-ipp-utils
+ ' sudo apt update
+ ' sudo service cups start
+ ' sudo systemctl status cups (status of cups)
+ ' lpstat -r (status of cups)
+ ' nmap -p 80,443,515,631,9100 192.168.151.103 (after installing nmap, to check if ipp port is open)
+ ' lpinfo -v | grep -Ei 'ipp|socket|lpd' (mostly ipp port will be open use this then)
+ ' ipptool -tv ipp://192.168.151.103/ipp/print get-printer-attributes.test
+ ' sudo lpadmin -p DCPT830DW -v ipp://192.168.151.103/ipp/print -E (important.. -p DCPT830DW creates a cups queue called DCPT830DW, the -v ipp.. tells cups where the printer is and -E enables printer and destination)
+ ' lpstat -t (check status of queue)
+ ' lpoptions -p DCPT830DW -l (checks options of printer like color...)
+ ' then install python3 and install python3 venv
+ ' sudo apt update
+ ' python3 -m venv .venv (to activate venv)
+ ' source .venv/bin/activate (activate venv)
+ ' cd "/mnt/d/Coursera/Print Kiosk/agent"
+ ' cp config.example.json config.json (here fill placeholders after registering printer at http://localhost:8000/api/devices/register/?name=brother-wsl-agent&printer_name=DCPT830DW)
+ ' nano config.json
+ ' install pip
+ ' sudo apt update
+ ' pip install -r requirements.txt (./.venv/bin/python agent.py if venv is erroring)
+ ' ./.venv/bin/python agent.py (if venv isnt working directly root to venv file)

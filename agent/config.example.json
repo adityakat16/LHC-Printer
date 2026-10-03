@@ -4,5 +4,8 @@
   "device_token": "",
   "poll_interval_seconds": 10,
   "printer_name": "DCPT830DW",
-  "cups_server": ""
+  "cups_server": "",
+  "cups_ipp_status_enabled": true,
+  "cups_poll_interval_seconds": 5,
+  "cups_job_timeout_seconds": 900
 }

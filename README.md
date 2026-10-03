@@ -11,6 +11,7 @@ port.
 1. Verify CUPS can see the printer:
 
    ```bash
+   sudo apt install cups cups-client cups-ipp-utils
    lpstat -p -d
    ```
 
@@ -48,3 +49,15 @@ registered device. The agent downloads the PDF from Django, submits it to CUPS
 with `lp -d DCPT830DW`, and reports the job status. Uploaded PDFs are kept in
 the shared `uploads_data` Docker volume until the 24-hour cleanup task removes
 them.
+
+The Linux agent queries printer IPP attributes before and during a job and
+checks CUPS queue completion. It reports printer-unreachable/stopped states
+and IPP-reported faults such as no paper, jams, open covers, and empty
+supplies. Reported low ink is recorded as a warning while printing continues.
+These diagnostics depend on the printer firmware and CUPS driver exposing the
+status; install `cups-ipp-utils` for `ipptool`.
+
+Status monitoring follows CUPS `lpstat` job/printer state and IPP printer
+attributes (`printer-state`, `printer-state-reasons`, `printer-state-message`,
+and marker levels), as defined in [RFC 8011](https://www.rfc-editor.org/rfc/rfc8011.html).
+See the [CUPS lpstat documentation](https://www.cups.org/doc/man-lpstat.html).

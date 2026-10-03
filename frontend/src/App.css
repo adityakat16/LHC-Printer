@@ -71,6 +71,9 @@ button:disabled { opacity: .55; cursor: wait; transform: none; }
 .badge { padding: 4px 8px; border-radius: 999px; background: #f3e3dc; color: var(--accent-dark); font-size: .72rem; font-weight: 700; text-transform: capitalize; }
 .order-detail { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: .86rem; }
 .order-detail strong { color: var(--ink); font-weight: 600; text-align: right; }
+.print-note { margin: 8px 0; padding: 9px 10px; border-radius: 8px; font-size: .82rem; }
+.print-error { background: #fff1ef; color: #a33428; }
+.print-warning { background: #fff8e8; color: #805b12; }
 .empty-state { padding: 24px; color: var(--muted); text-align: center; }
 
 @media (max-width: 600px) {

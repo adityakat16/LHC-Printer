@@ -122,6 +122,18 @@ function App(){
                     <span className="order-id">Order #{item.id}</span>
                     <span className="badge">{item.status.replace('_', ' ')}</span>
                   </div>
+                  {item.print_status && (
+                    <div className="order-detail">
+                      <span>Printing</span>
+                      <strong>{item.print_status.replace('_', ' ')}</strong>
+                    </div>
+                  )}
+                  {item.print_error && (
+                    <p className={item.print_status === 'done' ? 'print-note print-warning' : 'print-note print-error'}>
+                      <strong>{item.print_status === 'done' ? 'Printer warning: ' : 'Print error: '}</strong>
+                      {item.print_error}
+                    </p>
+                  )}
                   <div className="order-detail"><span>Mode</span><strong>{item.color_mode === 'color' ? 'Color' : 'Black & White'}</strong></div>
                   <div className="order-detail"><span>Pages</span><strong>{item.pages_spec}</strong></div>
                   <div className="order-detail"><span>Amount</span><strong>{item.currency} {(item.price_cents / 100).toFixed(2)}</strong></div>
