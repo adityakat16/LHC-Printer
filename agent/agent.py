@@ -45,6 +45,17 @@ def print_pdf(path):
     command.extend(['-d', PRINTER, path])
     subprocess.run(command, check=True)
 
+
+def update_job(job_id, status, **details):
+    response = requests.post(
+        f"{BASE}/devices/{DEVICE_ID}/jobs/{job_id}/status/",
+        json={'status': status, **details},
+        headers=headers,
+        timeout=15,
+    )
+    response.raise_for_status()
+
+
 while True:
     try:
         if not DEVICE_ID:
@@ -58,10 +69,9 @@ while True:
             order = job['order']
             file_key = order.get('file_key')
             print(f"Found job {job_id} for file {file_key}")
-            # Update status -> downloading
-            requests.post(f"{BASE}/devices/{DEVICE_ID}/jobs/{job_id}/status/", json={'status':'downloading'}, headers=headers)
             temp_path = None
             try:
+                update_job(job_id, 'downloading')
                 download_url = job.get('download_url') or f"{BASE}/devices/{DEVICE_ID}/jobs/{job_id}/file/"
                 if download_url:
                     with requests.get(download_url, headers=headers, stream=True, timeout=60) as download:
@@ -71,17 +81,25 @@ while True:
                             for chunk in download.iter_content(chunk_size=1024 * 1024):
                                 if chunk:
                                     temp.write(chunk)
-                elif os.path.isfile(file_key):
+                elif file_key and os.path.isfile(file_key):
                     temp_path = file_key
                 else:
                     raise RuntimeError('No downloadable file was provided for this job')
 
-                requests.post(f"{BASE}/devices/{DEVICE_ID}/jobs/{job_id}/status/", json={'status':'printing'}, headers=headers)
+                update_job(job_id, 'printing')
                 print_pdf(temp_path)
-                requests.post(f"{BASE}/devices/{DEVICE_ID}/jobs/{job_id}/status/", json={'status':'done','attempts': job.get('attempts',0)+1}, headers=headers)
+                update_job(job_id, 'done', attempts=job.get('attempts', 0) + 1)
             except Exception as exc:
                 print('Print failed', exc)
-                requests.post(f"{BASE}/devices/{DEVICE_ID}/jobs/{job_id}/status/", json={'status':'error','last_error':str(exc),'attempts': job.get('attempts',0)+1}, headers=headers)
+                try:
+                    update_job(
+                        job_id,
+                        'error',
+                        last_error=str(exc),
+                        attempts=job.get('attempts', 0) + 1,
+                    )
+                except requests.RequestException as status_error:
+                    print('Unable to report print failure', status_error)
             finally:
                 if temp_path and temp_path != file_key:
                     try:

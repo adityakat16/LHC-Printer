@@ -144,7 +144,11 @@ def razorpay_confirm(request):
     order.webhook_payload = data
     order.save()
 
-    device = Device.objects.first()
+    device = Device.objects.filter(
+        printer_name=settings.PRINT_PRINTER_NAME,
+    ).order_by('-id').first()
+    if device is None:
+        device = Device.objects.first()
     if device:
         PrintJob.objects.get_or_create(order=order, device=device, defaults={'status': 'queued'})
     # return updated order for frontend convenience
@@ -220,7 +224,11 @@ def razorpay_webhook(request):
     our_order.webhook_payload = payload
     our_order.save()
 
-    device = Device.objects.first()
+    device = Device.objects.filter(
+        printer_name=settings.PRINT_PRINTER_NAME,
+    ).order_by('-id').first()
+    if device is None:
+        device = Device.objects.first()
     if device:
         PrintJob.objects.get_or_create(order=our_order, device=device, defaults={'status': 'queued'})
     return Response({'status':'ok'})
@@ -251,8 +259,9 @@ def logout_user(request):
 def device_register(request):
     # For MVP: create a device record and return token
     name = request.query_params.get('name','local-agent')
+    printer_name = request.query_params.get('printer_name', '')
     token = str(uuid.uuid4())
-    device = Device.objects.create(name=name, device_token=token)
+    device = Device.objects.create(name=name, device_token=token, printer_name=printer_name)
     return Response(DeviceSerializer(device).data)
 
 

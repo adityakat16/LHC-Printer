@@ -237,6 +237,8 @@ build/
 db.sqlite3
 media/
 staticfiles/
+/backend/uploads/
+/agent/config.json
 
 # Logs
 *.log

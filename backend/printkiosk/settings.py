@@ -141,6 +141,7 @@ MEDIA_ROOT = BASE_DIR / 'uploads'
 MEDIA_URL = '/media/'
 
 MAX_UPLOAD_SIZE_BYTES = int(os.getenv('MAX_UPLOAD_SIZE_BYTES', str(15 * 1024 * 1024)))
+PRINT_PRINTER_NAME = os.getenv('PRINT_PRINTER_NAME', 'DCPT830DW')
 
 # Pricing is stored in paise (100 paise = Rs. 1).
 PRINT_PRICE_BW_PAISE = int(os.getenv('PRINT_PRICE_BW_PAISE', '200'))
